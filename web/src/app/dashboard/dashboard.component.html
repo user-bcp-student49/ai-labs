@@ -3,7 +3,7 @@
     <span class="brand-mark"><span></span><span></span></span>
     <div>
       <span class="eyebrow">ReqFlow · Mis requerimientos</span>
-      <h1>Hola, {{ user.displayName || user.username }}</h1>
+      <h1>Hola, {{ user?.displayName || user?.username }}</h1>
     </div>
   </div>
   <button type="button" (click)="logout()">Cerrar sesión</button>
