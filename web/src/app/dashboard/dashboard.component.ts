@@ -1,7 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, NgZone, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import axios from 'axios';
+import { AuthUser } from '../models/auth.models';
+import { Task } from '../models/task.models';
+import { SessionService } from '../services/session.service';
+import { TasksService } from '../services/tasks.service';
+import { getErrorMessage } from '../utils/error-message';
 import { formatTaskLabel } from '../utils/legacy-format';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -20,60 +24,59 @@ const STATUS_LABELS: Record<string, string> = {
   styleUrl: './dashboard.component.css'
 })
 export class DashboardComponent implements OnInit {
-  tasks: any[] = [];
-  visibleTasks: any[] = [];
-  user: any = {};
-  loading: any = true;
-  error: any = '';
+  tasks: Task[] = [];
+  visibleTasks: Task[] = [];
+  user: AuthUser | null = null;
+  loading = true;
+  error = '';
 
-  constructor(private router: Router, private cdr: ChangeDetectorRef, private zone: NgZone) {}
+  constructor(
+    private router: Router,
+    private cdr: ChangeDetectorRef,
+    private zone: NgZone,
+    private sessionService: SessionService,
+    private tasksService: TasksService
+  ) {}
 
-  statusLabel(status: string): string {
-    return STATUS_LABELS[(status || '').toUpperCase()] || status;
+  statusLabel(status: string | undefined): string {
+    return STATUS_LABELS[(status || '').toUpperCase()] || status || '';
   }
 
   async ngOnInit(): Promise<void> {
-    const token = localStorage.getItem('workshop_token');
-    this.user = JSON.parse(localStorage.getItem('workshop_user') || '{}');
+    const token = this.sessionService.getToken();
     if (!token) {
       await this.router.navigate(['/login']);
       return;
     }
+
     try {
-      const response: any = await axios.get('http://localhost:8000/api/tasks?owner=' + (this.user.username || ''), {
-        headers: { Authorization: 'Bearer ' + token }
-      });
-      const tasks = response.data;
-      const tmp: any[] = [];
-      for (let i = 0; i < tasks.length; i++) {
-        if (tasks[i].status !== 'ARCHIVED') {
-          tasks[i].label = formatTaskLabel(tasks[i]);
-          tmp.push(tasks[i]);
-        }
-      }
-      tmp.sort((a: any, b: any) => a.priority > b.priority ? -1 : 1);
-      // axios resuelve a veces fuera de la zona de Angular (más aún llegando
-      // por navegación desde el login): forzamos volver a entrar a la zona
-      // y disparamos detectChanges a mano para no depender de que Angular
-      // lo detecte solo.
+      this.user = this.sessionService.getUser();
+      const tasks = await this.tasksService.getTasks(this.user?.username || '', token);
+      this.tasks = tasks;
+      this.visibleTasks = this.createVisibleTasks(tasks);
       this.zone.run(() => {
-        this.tasks = tasks;
-        this.visibleTasks = tmp;
         this.loading = false;
         this.cdr.detectChanges();
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.zone.run(() => {
-        this.error = error?.response?.data?.detail || error?.message || 'No se pudo cargar el dashboard';
+        this.error = getErrorMessage(error, 'No se pudo cargar el dashboard');
         this.loading = false;
         this.cdr.detectChanges();
       });
     }
   }
 
+  private createVisibleTasks(tasks: Task[]): Task[] {
+    return tasks
+      .filter((task) => task.status !== 'ARCHIVED')
+      .map((task) => ({ ...task, label: formatTaskLabel(task) }))
+      .sort((first, second) => first.priority !== undefined && second.priority !== undefined
+        && first.priority > second.priority ? -1 : 1);
+  }
+
   async logout(): Promise<void> {
-    localStorage.removeItem('workshop_token');
-    localStorage.removeItem('workshop_user');
+    this.sessionService.clearSession();
     await this.router.navigate(['/login']);
   }
 }
