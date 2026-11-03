@@ -19,3 +19,5 @@ api/uploads/*
 !api/uploads/.gitkeep
 output/
 .DS_Store
+/api/diagrams
+/prompts
