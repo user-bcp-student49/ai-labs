@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+MAX_TASK_FIELD_LENGTH = 255
+
 
 class ApiSchema(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -13,10 +15,10 @@ class Identity(ApiSchema):
 
 
 class TaskCreateRequest(ApiSchema):
-    title: str = ""
-    description: str = ""
-    status: str = "TODO"
-    priority: str = "MEDIUM"
+    title: str = Field(default="", max_length=MAX_TASK_FIELD_LENGTH)
+    description: str = Field(default="", max_length=MAX_TASK_FIELD_LENGTH)
+    status: str = Field(default="TODO", max_length=MAX_TASK_FIELD_LENGTH)
+    priority: str = Field(default="MEDIUM", max_length=MAX_TASK_FIELD_LENGTH)
     owner: str | None = None
 
 

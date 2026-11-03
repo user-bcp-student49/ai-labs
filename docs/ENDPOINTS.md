@@ -124,9 +124,13 @@ válido (`api/app/schemas.py:15-20`).
 | `Authorization` | Header `string` | Sí | `Bearer` seguido por un JWT válido. |
 | `title` | JSON `string` | No | Título; predeterminado `""`. |
 | `description` | JSON `string` | No | Descripción; predeterminado `""`. |
-| `status` | JSON `string` | No | Estado; predeterminado `"TODO"`. No se valida contra una enumeración en este modelo. |
-| `priority` | JSON `string` | No | Prioridad; predeterminado `"MEDIUM"`. No se valida contra una enumeración en este modelo. |
+| `status` | JSON `string` | No | Estado; predeterminado `"TODO"`. Máximo 255 caracteres; no se valida contra una enumeración en este modelo. |
+| `priority` | JSON `string` | No | Prioridad; predeterminado `"MEDIUM"`. Máximo 255 caracteres; no se valida contra una enumeración en este modelo. |
 | `owner` | JSON `string` o `null` | No | Si se omite, es `null` o es vacío, se asigna el sujeto autenticado. Un valor no vacío distinto del sujeto se rechaza con `403`. |
+
+`title` y `description` también admiten hasta 255 caracteres cada uno. Los
+cuatro campos pueden omitirse, conservando sus valores predeterminados; un
+valor que exceda el máximo se rechaza con `422`.
 
 Ejemplo completo:
 
@@ -178,7 +182,7 @@ Ejemplo:
 |---|---|---|
 | `401 Unauthorized` | Header ausente o token inválido/expirado. | `{"detail":"Invalid token"}` |
 | `403 Forbidden` | El campo `owner` no vacío no coincide con el `sub` del token. | `{"detail":"Owner does not match identity"}` |
-| `422 Unprocessable Entity` | Falta el objeto JSON o un campo presente no tiene el tipo esperado. | `{"detail":[{"type":"string_type","loc":["body","title"],"msg":"Input should be a valid string","input":42}]}` |
+| `422 Unprocessable Entity` | Falta el objeto JSON, un campo presente no tiene el tipo esperado o cualquiera de los cuatro campos de texto excede 255 caracteres. | Respuesta de validación de FastAPI/Pydantic. |
 | `503 Service Unavailable` | Configuración JWT inválida/ausente o JWKS no disponible. | `{"detail":"Authentication is not configured"}` o `{"detail":"Authentication service is unavailable"}` |
 | `500 Internal Server Error` | Error interno no manejado; no hay cuerpo estable definido por esta API. | Pregunta abierta: lo determina la configuración del servidor ASGI. |
 

@@ -44,3 +44,82 @@ No se ejecutaron pruebas durante este discovery.
   carga y backend-health siguen cubiertos por pruebas de caracterización.
 - La integración con el emisor JWT real no se probó; confirmar soporte RS256,
   JWKS, `iss` y `aud` con su responsable.
+
+## Candidatos API (discovery)
+
+### H-API-08 — CORS permite cualquier origen con credenciales habilitadas
+- Estado: CANDIDATO
+- Evidencia: `api/app/main.py:53-58` configura `allow_origins=["*"]`,
+  `allow_credentials=True`, `allow_methods=["*"]` y `allow_headers=["*"]`.
+  La autenticación de rutas observada usa un encabezado de autorización
+  (`api/app/security.py:26-49`); no se confirmó aquí un flujo de cookies.
+- Impacto: una política sin allowlist permite que cualquier origen web intente
+  solicitudes cross-origin y lea las respuestas que el navegador permita. El
+  impacto efectivo depende de credenciales usadas por la integración; el
+  código API revisado no demuestra por sí solo un bypass del JWT.
+- Prioridad propuesta: media, sujeta a confirmar el modelo de despliegue y
+  credenciales del navegador.
+- Contrato potencialmente afectado: política CORS esperada para los orígenes
+  consumidores y su acceso a endpoints autenticados.
+- Cómo validarlo: definir los orígenes autorizados y probar preflight y
+  respuesta desde un origen permitido y otro no permitido; ejecutar
+  `python tools/lab.py test api` para la regresión.
+
+### H-API-09 — Campos de tarea sin límite de longitud
+- Estado: Resuelto
+- Evidencia: inicialmente `api/app/schemas.py:15-19` declaraba los cuatro
+  campos sin `max_length`. Ahora comparten el máximo de 255 caracteres en
+  `api/app/schemas.py:5,18-21`; `api/tests/test_api.py:251-294` comprueba
+  aceptación en el máximo y rechazo por encima de él sin persistencia.
+  `python tools/lab.py test api`: 59 pruebas pasaron; cobertura total 95.59%.
+- Impacto: la API limita los cuatro campos de creación de tareas antes de
+  persistirlos. Los límites de tamaño total en proxy o despliegue no se
+  verificaron y siguen fuera de este cambio.
+- Prioridad propuesta: media, condicionada a límites externos y al volumen de
+  usuarios permitidos.
+- Contrato potencialmente afectado: límites aceptados por `POST /api/tasks`
+  y disponibilidad/almacenamiento de la API.
+- Cómo validarlo: `python tools/lab.py test api`; las pruebas de frontera
+  cubren los cuatro campos en 255 y 256 caracteres y verifican que las
+  solicitudes rechazadas no agreguen tareas.
+
+### H-API-10 — Estados y prioridades aceptan valores arbitrarios
+- Estado: CANDIDATO
+- Evidencia: `api/app/schemas.py:18-19` deja `status` y `priority` como
+  cadenas libres; el contrato documenta que no se validan contra enumeraciones
+  (`docs/ENDPOINTS.md:127-128`). El resumen agrupa cualquier estado pero solo
+  cuenta como prioridad alta el texto exacto `HIGH`
+  (`api/app/services.py:49-64`).
+- Impacto: si el dominio espera un conjunto cerrado, datos con valores
+  tipográficos o desconocidos se almacenan y aparecen como categorías nuevas
+  en el resumen; prioridades fuera de `HIGH` no se cuentan como altas. La lista
+  válida de valores no está especificada en la evidencia revisada.
+- Prioridad propuesta: baja hasta acordar el vocabulario de negocio.
+- Contrato potencialmente afectado: validación de `POST /api/tasks` y la
+  semántica de `GET /api/summary`.
+- Cómo validarlo: acordar primero los valores permitidos; enviar estados y
+  prioridades desconocidos y comprobar si deben rechazarse o si el resumen
+  debe conservar el comportamiento actual. Ejecutar
+  `python tools/lab.py test api`.
+
+### H-API-11 — Los nombres de carga comparten un espacio global entre usuarios
+- Estado: CANDIDATO
+- Evidencia: `api/app/services.py:77-89` crea el destino usando solo el nombre
+  normalizado, y `api/app/services.py:87-93` responde `409` si ya existe. La
+  ruta pasa el usuario como metadato de respuesta, no como parte del destino
+  (`api/app/routes.py:57-68`); `api/tests/test_api.py:421-434` caracteriza el
+  conflicto ante una colisión.
+- Impacto: una carga con un nombre común puede impedir que otra identidad
+  guarde un archivo con ese mismo nombre en el directorio compartido; el modo
+  exclusivo evita sobrescrituras, pero convierte la colisión en interferencia
+  de disponibilidad entre usuarios.
+- Prioridad propuesta: baja; el efecto está limitado a nombres coincidentes y
+  no se confirmó que los archivos deban ser aislados por propietario.
+- Contrato potencialmente afectado: propiedad/aislamiento de archivos en
+  `POST /api/requirements` y respuesta `409` por nombre existente.
+- Cómo validarlo: con un directorio vacío, cargar el mismo nombre primero con
+  un token de una identidad y luego con otra; confirmar el comportamiento
+  esperado para ambas identidades y ejecutar `python tools/lab.py test api`.
+
+No se ejecutaron pruebas durante este discovery. Los cuatro hallazgos quedan
+pendientes de revisión humana; no se crearon issues ni se modificó código.

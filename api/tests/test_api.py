@@ -248,6 +248,51 @@ def test_task_creation_accepts_empty_object(tmp_path: Path) -> None:
     assert response.json()["priority"] == "MEDIUM"
 
 
+def test_task_creation_accepts_text_fields_at_maximum_length(
+    tmp_path: Path,
+) -> None:
+    maximum_text = "x" * 255
+    app = create_app(str(tmp_path / "workshop.db"), str(tmp_path / "uploads"))
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/tasks",
+            headers=headers(),
+            json={
+                "title": maximum_text,
+                "description": maximum_text,
+                "status": maximum_text,
+                "priority": maximum_text,
+            },
+        )
+
+    assert response.status_code == 201
+    assert response.json()["title"] == maximum_text
+    assert response.json()["description"] == maximum_text
+    assert response.json()["status"] == maximum_text
+    assert response.json()["priority"] == maximum_text
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["title", "description", "status", "priority"],
+)
+def test_task_creation_rejects_text_fields_over_maximum_length(
+    tmp_path: Path,
+    field: str,
+) -> None:
+    app = create_app(str(tmp_path / "workshop.db"), str(tmp_path / "uploads"))
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/tasks",
+            headers=headers(),
+            json={field: "x" * 256},
+        )
+        tasks = client.get("/api/tasks", headers=headers())
+
+    assert response.status_code == 422
+    assert len(tasks.json()) == 2
+
+
 @pytest.mark.parametrize(
     "payload",
     [None, {"title": 42}],

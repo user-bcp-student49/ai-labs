@@ -25,6 +25,7 @@ usan `127.0.0.1:1` y no representan una integración real.
 | `POST /api/tasks` | Crea una tarea válida (`test_creates_task_and_summary`) | Camino feliz | `201`; tarea persistida bajo el sujeto autenticado. |
 | `POST /api/tasks` | Cuerpo `{}` y campos omitidos | Borde | `201`; valores predeterminados del modelo, incluido owner del token. |
 | `POST /api/tasks` | Cuerpo ausente o tipo incorrecto en `title` | Error / validación | `422`; error FastAPI/Pydantic. |
+| `POST /api/tasks` | `title`, `description`, `status` y `priority` en 255 y 256 caracteres | Borde / límite | `201` en el máximo; `422` sobre el máximo y sin persistir la tarea. |
 | `POST /api/tasks` | Owner discordante | Error / autorización | `403`; la tarea para otro owner no se crea. |
 | `POST /api/tasks` | Header ausente, configuración JWT ausente o JWKS inaccesible | Error | `401` o `503` con cuerpo genérico de autenticación. |
 | `POST /api/tasks` | Fallo no manejado del servicio | Error | `500`; solo se verifica el status porque no hay cuerpo estable documentado. |
