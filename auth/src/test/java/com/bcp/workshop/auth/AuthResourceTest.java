@@ -84,6 +84,22 @@ class AuthResourceTest {
                 .body("token", nullValue());
     }
 
+    // Spec "valor de inyección como contraseña" (issue #23): un usuario válido no debe autenticarse con una contraseña manipulada.
+    @Test
+    void rejectsInjectionValueAsPasswordForExistingUser() {
+        postLogin("student", "' OR '1'='1")
+                .statusCode(401)
+                .body("token", nullValue());
+    }
+
+    // Vector real en username (design.md): con ambos campos manipulados la condición SQL se vuelve verdadera.
+    @Test
+    void rejectsInjectionValueInUsernameAndPassword() {
+        postLogin("' OR '1'='1", "' OR '1'='1")
+                .statusCode(401)
+                .body("token", nullValue());
+    }
+
     private static ValidatableResponse postLogin(String username, String password) {
         return given()
                 .contentType("application/json")
